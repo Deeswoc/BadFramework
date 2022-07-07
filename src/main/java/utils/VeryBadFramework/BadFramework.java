@@ -3,6 +3,7 @@ package utils.VeryBadFramework;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import utils.VeryBadFramework.Routing.Index;
+import utils.VeryBadFramework.Routing.Routes.Login;
 import utils.VeryBadFramework.Routing.Routes.Me;
 import utils.VeryBadFramework.Routing.Router;
 import utils.VeryBadHTTP.Request;
@@ -20,13 +21,13 @@ public class BadFramework {
             String path = "/";
             server = HttpServer.create();
             System.out.println("Starting server");
+            rootRouter = new Index();
+            //rootRouter.use("/login", new Login());
+            rootRouter.use("/me", new Me());
+            rootRouter.use("/login", new Login());
             server.createContext(path, (HttpExchange t) -> {
                 Request req = new Request(t);
                 Response res = new Response(t);
-                rootRouter = new Index();
-                //rootRouter.use("/login", new Login());
-                rootRouter.use("/me", new Me());
-
                 rootRouter.run(req, res, null);
             });
             server.setExecutor(null);
