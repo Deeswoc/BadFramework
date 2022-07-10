@@ -6,6 +6,7 @@ import utils.VeryBadFramework.Routing.Index;
 import utils.VeryBadFramework.Routing.Routes.Login;
 import utils.VeryBadFramework.Routing.Routes.Me;
 import utils.VeryBadFramework.Routing.Router;
+import utils.VeryBadFramework.Routing.Routes.Users;
 import utils.VeryBadHTTP.Request;
 import utils.VeryBadHTTP.Response;
 
@@ -25,6 +26,7 @@ public class BadFramework {
             //rootRouter.use("/login", new Login());
             rootRouter.use("/me", new Me());
             rootRouter.use("/login", new Login());
+            rootRouter.use("/users", new Users());
             server.createContext(path, (HttpExchange t) -> {
                 Request req = new Request(t);
                 Response res = new Response(t);

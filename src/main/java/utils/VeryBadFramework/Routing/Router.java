@@ -102,7 +102,11 @@ public abstract class Router implements Middleware {
     public void run(Request req, Response res, Next next) {
         Next restore = (error) -> {
             try {
-                res.status(500).message("Something went wrong");
+                if (error != null) {
+                    res.status(500).message("Something went wrong");
+                } else {
+                    res.status(404).message("Invalid Route");
+                }
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
@@ -213,6 +217,10 @@ public abstract class Router implements Middleware {
                     Router route;
                 }
 
+                if (e != null) {
+                    done.apply(e);
+                }
+
                 if (idx.idx >= stack.size()) {
                     done.apply(null);
                     return null;
@@ -251,7 +259,8 @@ public abstract class Router implements Middleware {
                 }
 
                 if (!ls.match) {
-
+                    l.apply(null);
+                    return null;
                 }
 
                 if (ls.route != null) {

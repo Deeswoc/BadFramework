@@ -2,6 +2,8 @@ package utils.VeryBadFramework.Routing.Routes;
 
 import Data.Database;
 import Model.Customer;
+import Model.Session;
+import Model.User;
 import com.fasterxml.jackson.databind.JsonNode;
 import utils.EncryptedPassword;
 import utils.VeryBadFramework.Middleware;
@@ -28,17 +30,20 @@ public class Login extends Router {
                 String password = body.get("password").asText();
                 int userID = body.get("id").asInt();
 
-                Customer customer = (Customer) db.getByID(Customer.class, userID);
-                if (customer == null) {
+                User user = (User) db.getByID(User.class, userID);
+                if (user == null) {
                     res.status(403).message("Incorrect username or password");
                 }
 
-                if (EncryptedPassword.checkpw(password, customer.getPwHash())) {
-                    UUID session = UUID.randomUUID();
-                    res.cookie("sid", session.toString());
-                    res.status(200).message(session.toString());
+                if (EncryptedPassword.checkpw(password, user.getPwHash())) {
+
+                    Session userSession = new Session(user);
+                    String sid = userSession.getSid().toString();
+                    res.cookie("sid", userSession.getSid().toString());
+                    db.save(userSession);
+                    res.status(200).message(sid);
                 } else {
-                    res.status(403).message("Incorrect username or password");
+                    res.status(401).message("Incorrect username or password");
                 }
                 next.apply(null);
             } catch (IOException e) {
