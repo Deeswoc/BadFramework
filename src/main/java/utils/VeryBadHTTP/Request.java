@@ -1,5 +1,6 @@
 package utils.VeryBadHTTP;
 
+import Model.Session;
 import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 import utils.VeryBadFramework.Middleware;
@@ -24,6 +25,15 @@ public class Request {
     }
 
     private String url;
+    private Session session;
+
+    public Session getSession() {
+        return session;
+    }
+
+    public void setSession(Session session) {
+        this.session = session;
+    }
 
     public StringBuilder getOriginalUrl() {
         return originalUrl;
@@ -37,15 +47,15 @@ public class Request {
 
     private StringBuilder baseUrl;
 
-    public Router getRoute() {
+    public Middleware getRoute() {
         return route;
     }
 
-    public void setRoute(Router route) {
+    public void setRoute(Middleware route) {
         this.route = route;
     }
 
-    private Router route;
+    private Middleware route;
     private List<String> path;
     private int pathDept;
     private String contentType;
@@ -54,7 +64,6 @@ public class Request {
     Map<String, String> params;
     HashMap<String, String> cookies;
 
-    private InputStream is;
     BufferedReader bs;
 
     public StringBuilder getBaseUrl() {
@@ -93,11 +102,10 @@ public class Request {
     }
 
     public Request(InputStream inputStream) throws BadRequestException {
-        this.is = inputStream;
 
         try {
 
-            BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(is));
+            BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(inputStream));
             bs = bufferedReader;
             /// Getting Request Type
             String startLine;
@@ -158,7 +166,7 @@ public class Request {
                 sb.append(buffer);
                 System.out.println(sb);
             }
-            is.close();
+            inputStream.close();
         } catch (IOException ex) {
             System.out.println("Error sending response");
             ex.printStackTrace();
@@ -166,15 +174,16 @@ public class Request {
     }
 
     public Request(HttpExchange exchange) throws IOException {
-        headers = exchange.getRequestHeaders();
-        contentLength = parseInt(headers.get("Content-Length").get(0));
-        InputStream is = exchange.getRequestBody();
-        String uri = exchange.getRequestURI().toString();
-        System.out.println(exchange.getRequestURI());
+        this.headers = exchange.getRequestHeaders();
+        this.contentLength = parseInt(headers.get("Content-Length").get(0));
         this.url = exchange.getRequestURI().toString();
-        method = METHOD.valueOf(exchange.getRequestMethod());
-        DataInputStream ds = new DataInputStream(is);
-        body = new Body(is, contentLength);
+        this.method = METHOD.valueOf(exchange.getRequestMethod());
+        InputStream is = exchange.getRequestBody();
+
+        if (method == METHOD.GET || contentLength != 0)
+            body = new Body(is, contentLength);
+        else
+            body = null;
     }
 
     public Map<String, String> cookies() {
