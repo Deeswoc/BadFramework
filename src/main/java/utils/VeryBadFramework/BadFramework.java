@@ -7,6 +7,7 @@ import utils.VeryBadFramework.Routing.Routes.Login;
 import utils.VeryBadFramework.Routing.Routes.Me;
 import utils.VeryBadFramework.Routing.Router;
 import utils.VeryBadFramework.Routing.Routes.Users;
+import utils.VeryBadHTTP.BadRequestException;
 import utils.VeryBadHTTP.Request;
 import utils.VeryBadHTTP.Response;
 
@@ -33,8 +34,11 @@ public class BadFramework {
                 rootRouter.run(req, res, null);
             });
             server.setExecutor(null);
+        } catch (BadRequestException e) {
+            e.printStackTrace();
+            System.out.println("Bad Request");
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            e.printStackTrace();
         }
     }
 
