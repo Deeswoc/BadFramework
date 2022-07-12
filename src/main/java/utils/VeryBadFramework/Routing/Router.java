@@ -7,11 +7,7 @@ import utils.VeryBadHTTP.Request;
 import utils.VeryBadHTTP.Response;
 
 import java.io.IOException;
-import java.lang.reflect.Method;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -22,7 +18,6 @@ public abstract class Router implements Middleware {
     Response res;
     Pattern pattern;
     String parentUrl;
-    StringBuilder removed;
     Boolean slashAdded = false;
     private Next routeNext;
 
@@ -32,14 +27,6 @@ public abstract class Router implements Middleware {
 
     public void setRouteNext(Next routeNext) {
         this.routeNext = routeNext;
-    }
-
-    public StringBuilder getRemoved() {
-        return removed;
-    }
-
-    public void setRemoved(StringBuilder removed) {
-        this.removed = removed;
     }
 
     public String getParentUrl() {
@@ -79,16 +66,14 @@ public abstract class Router implements Middleware {
     }
 
     public void get(Middleware... middlewares) {
-        for (Middleware m : middlewares) {
-            stack.add(new Layer("/", METHOD.GET, m));
-        }
+        Route route = route("/");
+        route.get(middlewares);
     }
 
 
     public void post(Middleware... middlewares) {
-        for (Middleware m : middlewares) {
-            stack.add(new Layer("/", METHOD.POST, m));
-        }
+        Route route = route("/");
+        route.post(middlewares);
     }
 
     public void delete(Middleware... middlewares) {
@@ -104,6 +89,7 @@ public abstract class Router implements Middleware {
             try {
                 if (error != null) {
                     res.status(500).message("Something went wrong");
+                    error.printStackTrace();
                 } else {
                     res.status(404).message("Invalid Route");
                 }
@@ -118,19 +104,17 @@ public abstract class Router implements Middleware {
 
 
     public void get(String path, Middleware... middlewares) {
-        for (Middleware m : middlewares) {
-            stack.add(new Layer(path, METHOD.GET, m));
-        }
+        Route route = route(path);
+        route.get(middlewares);
     }
 
     public void post(String path, Middleware... middlewares) {
-        for (Middleware m : middlewares) {
-            stack.add(new Layer(path, METHOD.POST, m));
-        }
+        Route route = route(path);
+        route.post(middlewares);
     }
 
     public void put(String path, Middleware... middlewares) {
-        ;
+
     }
 
     public void delete(String path, Middleware... middlewares) {
@@ -138,15 +122,15 @@ public abstract class Router implements Middleware {
     }
 
 
-    private void dispatch(Request req, Response res, Next done) {
+    protected void dispatch(Request req, Response res, Next done) {
         IntHolder idx = new IntHolder(0);
-
+        StringBuilder removed = new StringBuilder();
         StringBuilder parentUrl;
 
         if (req.getBaseUrl() != null)
             parentUrl = new StringBuilder(req.getBaseUrl().toString());
         else
-            parentUrl = new StringBuilder("");
+            parentUrl = new StringBuilder();
         int sync = 0;
         if (stack.size() == 0) {
             done.apply(null);
@@ -177,19 +161,19 @@ public abstract class Router implements Middleware {
                         return;
                     }
 
-                    char c = 0;
+                    char c = -0;
                     if (path.length() > layerPath.length())
                         c = path.charAt(layerPath.length());
 
-                    if (c != '/' && c != '.') {
+                    if (c != 0 && c != '/' && c != '.') {
                         next.apply(e);
                         return;
                     }
 
-                    removed = new StringBuilder(layerPath);
+                    removed.append(layerPath);
                     req.setUrl(req.getUrl().substring(removed.length()));
 
-                    if (req.getUrl().charAt(0) != '/') {
+                    if (!req.getUrl().isEmpty() && req.getUrl().charAt(0) != '/') {
                         req.setUrl("/" + req.getUrl());
                         slashAdded = true;
                     }
@@ -200,7 +184,7 @@ public abstract class Router implements Middleware {
                             : removed)));
                 }
                 if (e != null) {
-
+                    l.apply(e);
                 } else {
                     layer.handler.run(req, res, next);
                 }
@@ -214,11 +198,16 @@ public abstract class Router implements Middleware {
                 class LocalStack {
                     boolean match = false;
                     Layer layer;
-                    Router route;
+                    Route route;
                 }
 
                 if (e != null) {
                     done.apply(e);
+                }
+
+                if (removed.length() > 0) {
+                    req.setBaseUrl(parentUrl);
+                    req.setUrl(removed + req.getUrl().substring(removed.length()));
                 }
 
                 if (idx.idx >= stack.size()) {
@@ -228,9 +217,9 @@ public abstract class Router implements Middleware {
 
                 final LocalStack ls = new LocalStack();
 
-                if (removed != null && removed.length() != 0) {
+                if (removed.length() != 0) {
                     req.setBaseUrl(parentUrl);
-                    req.setUrl(removed.toString() + req.getUrl().substring(1));
+                    req.setUrl(removed + req.getUrl().substring(1));
                 }
                 while (!ls.match && idx.idx < stack.size()) {
 
@@ -241,7 +230,7 @@ public abstract class Router implements Middleware {
 
                     ls.layer = stack.get(idx.increment());
                     ls.match = ls.layer.match(req.getUrl());
-                    ls.route = ls.layer.getRouter();
+                    ls.route = ls.layer.getRoute();
 
                     if (!ls.match) {
                         continue;
@@ -270,16 +259,14 @@ public abstract class Router implements Middleware {
                 String layerPath = ls.layer.path;
                 processParams(ls.layer, null, req, res, (Exception ex) -> {
                     if (ex != null) {
-                        l.apply(null);
-                        return null;
-                    }
-
-                    if (ls.route != null) {
+                        l.apply(ex);
+                    } else if (ls.layer.route != null) {
                         ls.layer.handler.run(req, res, l);
-                        return null;
+                    } else {
+                        Trim_Prefix trim_prefix = new Trim_Prefix();
+                        String url = req.getUrl();
+                        trim_prefix.apply(ls.layer, null, layerPath, url, l);
                     }
-                    ls.layer.handler.run(req, res, l);
-//                    new Trim_Prefix().apply(ls.layer, null, layerPath, req.getUrl(), l);
                     return null;
                 });
                 return null;
@@ -302,8 +289,8 @@ public abstract class Router implements Middleware {
 
     private void processParams(Layer layer, Map<String, String> called, Request req, Response res, Next done) {
         done.apply(null);
-        return;
     }
+
 
     private static class IntHolder {
         int idx;
@@ -317,21 +304,185 @@ public abstract class Router implements Middleware {
         }
     }
 
+    private static class Route implements Middleware {
+        Map<METHOD, Boolean> methods;
+        List<Layer> stack;
+        String path;
+
+        Route(String path) {
+            this.path = path;
+            this.stack = new ArrayList<>();
+            this.methods = new HashMap<>();
+        }
+
+        private boolean handles_method(METHOD method) {
+            Boolean handles = this.methods.get(method);
+            return handles != null && handles;
+        }
+
+        @Override
+        public void run(Request req, Response res, Next next) {
+            dispatch(req, res, next);
+        }
+
+        private void dispatch(Request req, Response res, Next done) {
+            IntHolder idx = new IntHolder(0);
+
+            int sync = 0;
+            if (stack.size() == 0) {
+                done.apply(null);
+                return;
+            }
+            METHOD method = req.getMethod();
+
+            class SomeNext implements Next {
+                Next n;
+
+                @Override
+                public Void apply(Exception e) {
+                    n.apply(e);
+                    return null;
+                }
+
+                public void setN(Next n) {
+                    this.n = n;
+                }
+            }
+
+            SomeNext l = new SomeNext();
+
+
+            class NextHandler implements Next {
+
+                @Override
+                public Void apply(Exception e) {
+                    class LocalStack {
+                        boolean match = false;
+                        Layer layer;
+                        Route route;
+                    }
+
+                    if (e != null) {
+                        done.apply(e);
+                    }
+
+
+                    if (idx.idx >= stack.size()) {
+                        done.apply(null);
+                        return null;
+                    }
+
+                    final LocalStack ls = new LocalStack();
+
+
+                    while (!ls.match && idx.idx < stack.size()) {
+
+                        if (e != null) {
+                            done.apply(e);
+                        }
+
+
+                        ls.layer = stack.get(idx.increment());
+                        ls.match = ls.layer.match(req.getUrl());
+                        ls.route = ls.layer.getRoute();
+
+                        if (!ls.match) {
+                            continue;
+                        }
+
+                        if (ls.route != null) {
+                            continue;
+                        }
+                    }
+
+
+                    if (ls.layer.getMethod() != null && ls.layer.getMethod() != req.getMethod()) {
+                        l.apply(e);
+                        return null;
+                    }
+
+                    if (!ls.match) {
+                        l.apply(null);
+                        return null;
+                    }
+
+                    if (ls.route != null) {
+                        req.setRoute(ls.route);
+                    }
+
+                    if (ls.layer.method != null && ls.layer.method != method) {
+                        l.apply(null);
+                    }
+
+                    ls.layer.handler.run(req, res, l);
+                    return null;
+                }
+            }
+
+
+            NextHandler next = new NextHandler();
+            l.setN(next);
+            try {
+                l.apply(null);
+            } catch (Exception e) {
+                l.apply(e);
+            }
+        }
+
+        public Route get(Middleware... handles) {
+            for (Middleware handle : handles) {
+                Layer layer = new Layer("/", handle);
+                layer.method = METHOD.GET;
+                this.methods.put(METHOD.GET, true);
+                this.stack.add(layer);
+            }
+            return this;
+        }
+
+        public Route post(Middleware... handles) {
+            for (Middleware handle : handles) {
+                Layer layer = new Layer("/", handle);
+                layer.method = METHOD.POST;
+                this.methods.put(METHOD.POST, true);
+                this.stack.add(layer);
+            }
+            return this;
+        }
+    }
+
+    private Route route(String path) {
+        Route route = new Route(path);
+
+        Layer layer = new Layer(path, route);
+
+        layer.route = route;
+        stack.add(layer);
+        return route;
+    }
+
     private static class Layer implements Middleware {
-        Route route;
+        Router.Route route;
         Pattern pattern;
         String path;
-        Router router;
+        //        Router router;
         boolean fast_star = false;
         boolean fast_slash = false;
 
-        public Router getRouter() {
-            return router;
+        public Router.Route getRoute() {
+            return route;
         }
 
-        public void setRouter(Router router) {
-            this.router = router;
+        public void setRoute(Router.Route route) {
+            this.route = route;
         }
+
+        //        public Router getRouter() {
+//            return router;
+//        }
+//
+//        public void setRouter(Router router) {
+//            this.router = router;
+//        }
 
         Middleware handler;
         METHOD method;
@@ -345,11 +496,10 @@ public abstract class Router implements Middleware {
         }
 
         boolean match(String path) {
-            Matcher m = null;
-            if (pattern != null)
-                m = pattern.matcher(path);
+            Matcher m;
             String matchedPath = null;
-            if (path != null) {
+            if (pattern != null) {
+                m = pattern.matcher(path);
                 if (fast_slash) {
                     this.path = "";
                     return true;
@@ -397,14 +547,6 @@ public abstract class Router implements Middleware {
             }
             pattern = Pattern.compile(sb.toString(), Pattern.CASE_INSENSITIVE);
             String[] paths = path.split("/");
-            for (String token : paths) {
-
-            }
-
-            if (method != null) {
-
-            }
-            this.route = new Route();
             this.handler = handler;
             this.method = method;
         }
@@ -434,7 +576,6 @@ public abstract class Router implements Middleware {
                 handler.run(req, res, next);
             }
             next.apply(null);
-            return;
         }
     }
 }
