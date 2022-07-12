@@ -1,25 +1,24 @@
 package utils.VeryBadFramework.Routing.Routes;
 
 import Data.Database;
-import Model.Customer;
 import Model.Session;
 import Model.User;
 import com.fasterxml.jackson.databind.JsonNode;
 import utils.EncryptedPassword;
-import utils.VeryBadFramework.Middleware;
 import utils.VeryBadFramework.Next;
 import utils.VeryBadFramework.Routing.Router;
 import utils.VeryBadHTTP.Request;
 import utils.VeryBadHTTP.Response;
 
 import java.io.IOException;
-import java.util.UUID;
-import java.util.function.Consumer;
-import java.util.function.Function;
 
 public class Login extends Router {
     Database db;
-
+    @Override
+    protected void dispatch(Request req, Response res, Next done) {
+        super.dispatch(req, res, done);
+        System.out.println("Login Router is being ran");
+    }
     public Login() {
         db = Database.getDatabase();
 
@@ -33,13 +32,14 @@ public class Login extends Router {
                 User user = (User) db.getByID(User.class, userID);
                 if (user == null) {
                     res.status(403).message("Incorrect username or password");
+                    return;
                 }
 
                 if (EncryptedPassword.checkpw(password, user.getPwHash())) {
 
                     Session userSession = new Session(user);
-                    String sid = userSession.getSid().toString();
-                    res.cookie("sid", userSession.getSid().toString());
+                    String sid = userSession.getSid();
+                    res.cookie("sid", userSession.getSid());
                     db.save(userSession);
                     res.status(200).message(sid);
                 } else {
