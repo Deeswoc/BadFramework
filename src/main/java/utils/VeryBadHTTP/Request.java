@@ -64,7 +64,6 @@ public class Request {
     Map<String, String> params;
     HashMap<String, String> cookies;
 
-    private InputStream is;
     BufferedReader bs;
 
     public StringBuilder getBaseUrl() {
@@ -103,11 +102,10 @@ public class Request {
     }
 
     public Request(InputStream inputStream) throws BadRequestException {
-        this.is = inputStream;
 
         try {
 
-            BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(is));
+            BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(inputStream));
             bs = bufferedReader;
             /// Getting Request Type
             String startLine;
@@ -168,7 +166,7 @@ public class Request {
                 sb.append(buffer);
                 System.out.println(sb);
             }
-            is.close();
+            inputStream.close();
         } catch (IOException ex) {
             System.out.println("Error sending response");
             ex.printStackTrace();
@@ -176,14 +174,16 @@ public class Request {
     }
 
     public Request(HttpExchange exchange) throws IOException {
-        headers = exchange.getRequestHeaders();
-        contentLength = parseInt(headers.get("Content-Length").get(0));
-        InputStream is = exchange.getRequestBody();
-        System.out.println(exchange.getRequestURI());
+        this.headers = exchange.getRequestHeaders();
+        this.contentLength = parseInt(headers.get("Content-Length").get(0));
         this.url = exchange.getRequestURI().toString();
-        method = METHOD.valueOf(exchange.getRequestMethod());
-        DataInputStream ds = new DataInputStream(is);
-        body = new Body(is, contentLength);
+        this.method = METHOD.valueOf(exchange.getRequestMethod());
+        InputStream is = exchange.getRequestBody();
+
+        if (method == METHOD.GET || contentLength != 0)
+            body = new Body(is, contentLength);
+        else
+            body = null;
     }
 
     public Map<String, String> cookies() {
