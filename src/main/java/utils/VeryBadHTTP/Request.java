@@ -180,7 +180,7 @@ public class Request {
         this.method = METHOD.valueOf(exchange.getRequestMethod());
         InputStream is = exchange.getRequestBody();
 
-        if (method == METHOD.GET || contentLength != 0)
+        if (method != METHOD.GET || contentLength != 0)
             body = new Body(is, contentLength);
         else
             body = null;
@@ -189,10 +189,11 @@ public class Request {
     public Map<String, String> cookies() {
         List<String> cookieStrings = headers.get("Cookie");
         Map<String, String> cookies = new HashMap<>();
-        for (String cookie : cookieStrings) {
-            String[] keyVal = cookie.split("=");
-            cookies.put(keyVal[0], keyVal[1]);
-        }
+        if (cookieStrings != null)
+            for (String cookie : cookieStrings) {
+                String[] keyVal = cookie.split("=");
+                cookies.put(keyVal[0], keyVal[1]);
+            }
         return cookies;
     }
 
