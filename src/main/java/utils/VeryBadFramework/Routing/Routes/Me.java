@@ -26,6 +26,7 @@ public class Me extends Router {
 
     public Me() {
         use((Request req, Response res, Next next) -> {
+            System.out.println("Hitting /Me");
             Map<String, String> cookies = req.cookies();
             String sid = cookies.get("sid");
             try {
