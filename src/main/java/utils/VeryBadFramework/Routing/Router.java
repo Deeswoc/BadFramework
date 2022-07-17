@@ -77,11 +77,13 @@ public abstract class Router implements Middleware {
     }
 
     public void delete(Middleware... middlewares) {
-
+        Route route = route("/");
+        route.delete(middlewares);
     }
 
     public void put(Middleware... middlewares) {
-
+        Route route = route("/");
+        route.put(middlewares);
     }
 
     public void run(Request req, Response res, Next next) {
@@ -203,6 +205,7 @@ public abstract class Router implements Middleware {
 
                 if (e != null) {
                     done.apply(e);
+                    return null;
                 }
 
                 if (removed.length() > 0) {
@@ -222,12 +225,6 @@ public abstract class Router implements Middleware {
                     req.setUrl(removed + req.getUrl().substring(1));
                 }
                 while (!ls.match && idx.idx < stack.size()) {
-
-                    if (e != null) {
-                        done.apply(e);
-                    }
-
-
                     ls.layer = stack.get(idx.increment());
                     ls.match = ls.layer.match(req.getUrl());
                     ls.route = ls.layer.getRoute();
@@ -304,151 +301,6 @@ public abstract class Router implements Middleware {
         }
     }
 
-    private static class Route implements Middleware {
-        Map<METHOD, Boolean> methods;
-        List<Layer> stack;
-        String path;
-
-        Route(String path) {
-            this.path = path;
-            this.stack = new ArrayList<>();
-            this.methods = new HashMap<>();
-        }
-
-        private boolean handles_method(METHOD method) {
-            Boolean handles = this.methods.get(method);
-            return handles != null && handles;
-        }
-
-        @Override
-        public void run(Request req, Response res, Next next) {
-            dispatch(req, res, next);
-        }
-
-        private void dispatch(Request req, Response res, Next done) {
-            IntHolder idx = new IntHolder(0);
-
-            int sync = 0;
-            if (stack.size() == 0) {
-                done.apply(null);
-                return;
-            }
-            METHOD method = req.getMethod();
-
-            class SomeNext implements Next {
-                Next n;
-
-                @Override
-                public Void apply(Exception e) {
-                    n.apply(e);
-                    return null;
-                }
-
-                public void setN(Next n) {
-                    this.n = n;
-                }
-            }
-
-            SomeNext l = new SomeNext();
-
-
-            class NextHandler implements Next {
-
-                @Override
-                public Void apply(Exception e) {
-                    class LocalStack {
-                        boolean match = false;
-                        Layer layer;
-                        Route route;
-                    }
-
-                    if (e != null) {
-                        done.apply(e);
-                    }
-
-
-                    if (idx.idx >= stack.size()) {
-                        done.apply(null);
-                        return null;
-                    }
-
-                    final LocalStack ls = new LocalStack();
-
-
-                    while (!ls.match && idx.idx < stack.size()) {
-
-                        if (e != null) {
-                            done.apply(e);
-                        }
-
-
-                        ls.layer = stack.get(idx.increment());
-                        ls.match = ls.layer.match(req.getUrl());
-                        ls.route = ls.layer.getRoute();
-
-                        if (!ls.match) {
-                            continue;
-                        }
-
-                        if (ls.route != null) {
-                            continue;
-                        }
-                    }
-
-
-                    if (ls.layer.getMethod() != null && ls.layer.getMethod() != req.getMethod()) {
-                        l.apply(e);
-                        return null;
-                    }
-
-                    if (!ls.match) {
-                        l.apply(null);
-                        return null;
-                    }
-
-                    if (ls.route != null) {
-                        req.setRoute(ls.route);
-                    }
-
-                    if (ls.layer.method != null && ls.layer.method != method) {
-                        l.apply(null);
-                    }
-
-                    ls.layer.handler.run(req, res, l);
-                    return null;
-                }
-            }
-
-
-            NextHandler next = new NextHandler();
-            l.setN(next);
-            try {
-                l.apply(null);
-            } catch (Exception e) {
-                l.apply(e);
-            }
-        }
-
-        public Route get(Middleware... handles) {
-            for (Middleware handle : handles) {
-                Layer layer = new Layer("/", handle);
-                layer.method = METHOD.GET;
-                this.methods.put(METHOD.GET, true);
-                this.stack.add(layer);
-            }
-            return this;
-        }
-
-        public Route post(Middleware... handles) {
-            for (Middleware handle : handles) {
-                Layer layer = new Layer("/", handle);
-                layer.method = METHOD.POST;
-                this.methods.put(METHOD.POST, true);
-                this.stack.add(layer);
-            }
-            return this;
-        }
-    }
 
     private Route route(String path) {
         Route route = new Route(path);
@@ -458,124 +310,5 @@ public abstract class Router implements Middleware {
         layer.route = route;
         stack.add(layer);
         return route;
-    }
-
-    private static class Layer implements Middleware {
-        Router.Route route;
-        Pattern pattern;
-        String path;
-        //        Router router;
-        boolean fast_star = false;
-        boolean fast_slash = false;
-
-        public Router.Route getRoute() {
-            return route;
-        }
-
-        public void setRoute(Router.Route route) {
-            this.route = route;
-        }
-
-        //        public Router getRouter() {
-//            return router;
-//        }
-//
-//        public void setRouter(Router router) {
-//            this.router = router;
-//        }
-
-        Middleware handler;
-        METHOD method;
-
-        public String getPath() {
-            return path;
-        }
-
-        public METHOD getMethod() {
-            return method;
-        }
-
-        boolean match(String path) {
-            Matcher m;
-            String matchedPath = null;
-            if (pattern != null) {
-                m = pattern.matcher(path);
-                if (fast_slash) {
-                    this.path = "";
-                    return true;
-                }
-                if (fast_star) {
-                    this.path = path;
-                    return true;
-                }
-                if (m.find()) {
-                    matchedPath = m.group(0);
-                }
-            }
-            if (matchedPath == null) {
-                this.path = null;
-                return false;
-            }
-
-            this.path = matchedPath;
-            return true;
-        }
-
-        Layer() {
-        }
-
-        Layer(String path, Middleware handler) {
-            this(path, null, handler);
-        }
-
-        Layer(String path, METHOD method, Middleware handler) {
-            if (path.equals("/")) {
-                fast_slash = true;
-            }
-            if (path.equals("*")) {
-                fast_star = true;
-            }
-
-            StringBuilder sb = new StringBuilder("^");
-            for (int i = 0; i < path.length(); i++) {
-                char c = path.charAt(i);
-                if (c == '/') {
-                    sb.append("\\/");
-                } else {
-                    sb.append(c);
-                }
-            }
-            pattern = Pattern.compile(sb.toString(), Pattern.CASE_INSENSITIVE);
-            String[] paths = path.split("/");
-            this.handler = handler;
-            this.method = method;
-        }
-
-        Layer(Middleware handler) {
-            this.path = "/";
-            this.fast_slash = true;
-            this.handler = handler;
-        }
-
-        Layer(Middleware handler, METHOD method) {
-            this.path = "/";
-            this.fast_slash = true;
-            this.handler = handler;
-            this.method = method;
-        }
-
-        static class Route {
-            String path;
-            List<Layer> stack;
-            List<METHOD> methods;
-        }
-
-        @Override
-        public void run(Request req, Response res, Next next) {
-            if (match(req.getUrl())) {
-                handler.run(req, res, next);
-            }
-            next.apply(null);
-        }
     }
 }
