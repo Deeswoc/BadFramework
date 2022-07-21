@@ -1,5 +1,6 @@
 package utils.VeryBadFramework.Routing;
 
+import utils.PathToRegex.PathToRegex;
 import utils.VeryBadFramework.Middleware;
 import utils.VeryBadFramework.Next;
 import utils.VeryBadHTTP.METHOD;
@@ -54,15 +55,16 @@ public abstract class Router implements Middleware {
     public void use(String path, Middleware... middlewares) {
         for (Middleware m :
                 middlewares) {
-            stack.add(new Layer(path, m));
+            PathToRegex.Config config = new PathToRegex.Config();
+            config.setSensitive(false);
+            config.setStrict(false);
+            config.setEnd(false);
+            stack.add(new Layer(path, config, m));
         }
     }
 
     public void use(Middleware... middlewares) {
-        for (Middleware m :
-                middlewares) {
-            stack.add(new Layer("/", null, m));
-        }
+        use("/", middlewares);
     }
 
     public void get(Middleware... middlewares) {
@@ -96,7 +98,7 @@ public abstract class Router implements Middleware {
                     res.status(404).message("Invalid Route");
                 }
             } catch (IOException e) {
-                throw new RuntimeException(e);
+                System.out.println("Error sending message");
             }
             return null;
         };
@@ -120,7 +122,8 @@ public abstract class Router implements Middleware {
     }
 
     public void delete(String path, Middleware... middlewares) {
-
+        Route route = route(path);
+        route.delete(middlewares);
     }
 
 
@@ -252,7 +255,7 @@ public abstract class Router implements Middleware {
                 if (ls.route != null) {
                     req.setRoute(ls.route);
                 }
-
+                req.setParams(ls.layer.getParams());
                 String layerPath = ls.layer.path;
                 processParams(ls.layer, null, req, res, (Exception ex) -> {
                     if (ex != null) {
@@ -304,8 +307,10 @@ public abstract class Router implements Middleware {
 
     private Route route(String path) {
         Route route = new Route(path);
+        PathToRegex.Config config = new PathToRegex.Config();
+        config.setEnd(true);
 
-        Layer layer = new Layer(path, route);
+        Layer layer = new Layer(path, config, route);
 
         layer.route = route;
         stack.add(layer);

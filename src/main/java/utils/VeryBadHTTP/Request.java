@@ -20,6 +20,7 @@ public class Request {
     Body body;
     private METHOD method;
 
+
     public void setUrl(String url) {
         this.url = url;
     }
@@ -62,6 +63,15 @@ public class Request {
     private int contentLength;
     Map<String, String> query;
     Map<String, String> params;
+
+    public Map<String, String> getParams() {
+        return params;
+    }
+
+    public void setParams(Map<String, String> params) {
+        this.params = params;
+    }
+
     HashMap<String, String> cookies;
 
     BufferedReader bs;

@@ -43,6 +43,7 @@ class Route implements Middleware {
             return idx++;
         }
     }
+
     private void dispatch(Request req, Response res, Next done) {
         IntHolder idx = new IntHolder(0);
 
@@ -142,9 +143,13 @@ class Route implements Middleware {
         }
     }
 
+    public boolean handlesMethod(METHOD method) {
+        return (methods.get(method) != null && methods.get(method));
+    }
+
     public Route get(Middleware... handles) {
         for (Middleware handle : handles) {
-            Layer layer = new Layer("/", handle);
+            Layer layer = new Layer("/", null, handle);
             layer.method = METHOD.GET;
             this.methods.put(METHOD.GET, true);
             this.stack.add(layer);
@@ -154,7 +159,7 @@ class Route implements Middleware {
 
     public Route post(Middleware... handles) {
         for (Middleware handle : handles) {
-            Layer layer = new Layer("/", handle);
+            Layer layer = new Layer("/", null, handle);
             layer.method = METHOD.POST;
             this.methods.put(METHOD.POST, true);
             this.stack.add(layer);
@@ -164,7 +169,7 @@ class Route implements Middleware {
 
     public Route delete(Middleware... handles) {
         for (Middleware handle : handles) {
-            Layer layer = new Layer("/", handle);
+            Layer layer = new Layer("/", null, handle);
             layer.method = METHOD.DELETE;
             this.methods.put(METHOD.DELETE, true);
             this.stack.add(layer);
@@ -174,7 +179,7 @@ class Route implements Middleware {
 
     public Route put(Middleware... handles) {
         for (Middleware handle : handles) {
-            Layer layer = new Layer("/", handle);
+            Layer layer = new Layer("/", null, handle);
             layer.method = METHOD.PUT;
             this.methods.put(METHOD.PUT, true);
             this.stack.add(layer);

@@ -45,9 +45,9 @@ public class Login extends Router {
                 } else {
                     res.status(401).message("Incorrect username or password");
                 }
-                next.apply(null);
             } catch (IOException e) {
                 System.out.println("Something went bonkers, dude");
+                next.apply(e);
             }
         });
     }

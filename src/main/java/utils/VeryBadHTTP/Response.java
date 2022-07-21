@@ -8,10 +8,7 @@ import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintWriter;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class Response extends Message {
     private int status;
@@ -26,6 +23,11 @@ public class Response extends Message {
         OutputStream os = exchange.getResponseBody();
         os.write(message.getBytes());
         os.close();
+    }
+
+    public void end()throws IOException {
+        exchange.sendResponseHeaders(status, 0);
+        exchange.getResponseBody().close();
     }
 
     public Response cookie(String name, String value){
@@ -52,6 +54,10 @@ public class Response extends Message {
 
     public void json(JsonNode jsonTree) throws IOException {
         json(jsonTree.toString());
+    }
+
+    public void json(Set<?> set){
+        json(set);
     }
 
     public void json(Object object) throws IOException {

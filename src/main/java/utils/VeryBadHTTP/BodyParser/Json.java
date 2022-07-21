@@ -22,20 +22,6 @@ public class Json {
         return objectMapper.treeToValue(node, aClass);
     }
 
-    public static void main(String[] args) {
-        String jsonSource = "{\n" +
-                "    \"test\": \"yes\"\n" +
-                "}";
-
-        try {
-            JsonNode node = parse(jsonSource);
-            System.out.println(node.get("test").asText());
-        } catch (IOException ex) {
-            System.out.println("Error Parsing JSON");
-            ex.printStackTrace();
-        }
-    }
-
     public static String stringify(JsonNode node) throws JsonProcessingException {
         ObjectWriter objectWriter = objectMapper.writer();
         return objectWriter.writeValueAsString(node);
